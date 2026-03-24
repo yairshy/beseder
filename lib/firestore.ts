@@ -12,6 +12,7 @@ import {
   addDoc,
   arrayUnion,
   arrayRemove,
+  deleteDoc,
   Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -135,6 +136,8 @@ export async function leaveFamily(userId: string, familyId: string) {
   await updateDoc(doc(db, "families", familyId), {
     memberIds: arrayRemove(userId),
   });
+  // Remove the user's latest status so they don't show on the dashboard
+  await deleteDoc(doc(db, "families", familyId, "latestStatus", userId));
   await updateUser(userId, { familyId: null });
 }
 
