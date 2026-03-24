@@ -1,65 +1,226 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useCallback } from "react";
+import { useAuthStore } from "@/stores/authStore";
+import { useFamilyStore } from "@/stores/familyStore";
+import { reportStatus } from "@/lib/firestore";
+import { useT, useI18n } from "@/lib/i18n";
+import StatusButton from "@/components/StatusButton";
+import FamilyMemberCard from "@/components/FamilyMemberCard";
+import { statuses, type StatusId } from "@/constants/statuses";
+import AppShell from "./AppShell";
+import LoginPage from "./login/page";
+
+function ReportModal({
+  open,
+  onClose,
+  onSend,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSend: (status: StatusId, message: string, photo: File | null) => void;
+}) {
+  const t = useT();
+  const lang = useI18n((s) => s.lang);
+  const [selected, setSelected] = useState<StatusId>("ok");
+  const [message, setMessage] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+
+  if (!open) return null;
+
+  const handleSend = async () => {
+    setSending(true);
+    await onSend(selected, message, photo);
+    setSending(false);
+    setMessage("");
+    setPhoto(null);
+    setSelected("ok");
+    onClose();
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white rounded-t-3xl p-6 pb-10">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-slate-800">
+            {t("report.selectStatus")}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 text-2xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {statuses.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSelected(s.id)}
+              className={`flex items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                selected === s.id
+                  ? "border-current shadow-md"
+                  : "border-transparent bg-slate-50"
+              }`}
+              style={
+                selected === s.id
+                  ? { borderColor: s.color, backgroundColor: s.bgColor }
+                  : {}
+              }
+            >
+              <span className="text-2xl">{s.icon}</span>
+              <span className="font-medium text-sm">
+                {lang === "he" ? s.labelHe : s.labelEn}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder={t("report.addMessage")}
+          className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 mb-4"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="flex items-center gap-3 mb-6">
+          <label className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer">
+            <span className="text-xl">📷</span>
+            {t("report.addPhoto")}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => setPhoto(e.target.files?.[0] || null)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </label>
+          {photo && (
+            <span className="text-sm text-green-600 font-medium">
+              ✓ {photo.name}
+            </span>
+          )}
         </div>
-      </main>
+
+        <button
+          onClick={handleSend}
+          disabled={sending}
+          className="w-full py-4 rounded-2xl bg-green-500 text-white font-bold text-lg shadow-lg disabled:opacity-50 transition-all active:scale-[0.98]"
+        >
+          {sending ? t("report.sending") : t("report.send")}
+        </button>
+      </div>
     </div>
+  );
+}
+
+function HomePage() {
+  const t = useT();
+  const { user, profile } = useAuthStore();
+  const { familyId, statuses: familyStatuses } = useFamilyStore();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleQuickReport = useCallback(async () => {
+    if (!user || !profile || !familyId) return;
+    await reportStatus(
+      familyId,
+      user.uid,
+      profile.displayName,
+      profile.photoURL,
+      "ok",
+      null,
+      null
+    );
+    if (navigator.vibrate) navigator.vibrate(50);
+  }, [user, profile, familyId]);
+
+  const handleDetailedReport = useCallback(
+    async (status: StatusId, message: string, _photo: File | null) => {
+      if (!user || !profile || !familyId) return;
+      await reportStatus(
+        familyId,
+        user.uid,
+        profile.displayName,
+        profile.photoURL,
+        status,
+        message || null,
+        null
+      );
+      if (navigator.vibrate) navigator.vibrate(50);
+    },
+    [user, profile, familyId]
+  );
+
+  if (!familyId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center">
+        <div className="text-6xl mb-6">👨‍👩‍👧‍👦</div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">
+          {t("home.noFamily")}
+        </h2>
+        <p className="text-slate-500 mb-8">{t("home.joinOrCreate")}</p>
+        <a
+          href="/family"
+          className="px-8 py-4 bg-green-500 text-white font-bold rounded-2xl shadow-lg"
+        >
+          {t("family.createFamily")}
+        </a>
+      </div>
+    );
+  }
+
+  const statusEntries = Object.entries(familyStatuses);
+
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+      <div className="flex-1 flex items-center justify-center px-6 pt-8">
+        <StatusButton
+          onTap={handleQuickReport}
+          onLongPress={() => setModalOpen(true)}
+        />
+      </div>
+
+      <div className="px-4 pb-6">
+        <h3 className="text-lg font-bold text-slate-800 mb-3">
+          {t("home.familyStatus")}
+        </h3>
+        {statusEntries.length === 0 ? (
+          <p className="text-slate-400 text-center py-8">
+            {t("home.noReports")}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {statusEntries.map(([memberId, status]) => (
+              <FamilyMemberCard
+                key={memberId}
+                memberId={memberId}
+                status={status}
+                currentUserId={user?.uid || ""}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ReportModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSend={handleDetailedReport}
+      />
+    </div>
+  );
+}
+
+export default function Page() {
+  const { user, profile, initialized } = useAuthStore();
+  const isAuthed = !!user && !!profile?.displayName;
+
+  return (
+    <AppShell>
+      {!initialized ? null : isAuthed ? <HomePage /> : <LoginPage />}
+    </AppShell>
   );
 }

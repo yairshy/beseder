@@ -1,0 +1,88 @@
+{
+  "app": {
+    "name": "Beseder",
+    "tagline": "Family Safety Check-In"
+  },
+  "home": {
+    "imOk": "I'm OK",
+    "tapToReport": "Tap to report you're safe",
+    "moreStatuses": "More options",
+    "familyStatus": "Family Status",
+    "noFamily": "No family group yet",
+    "joinOrCreate": "Create or join a family group to see your loved ones' status",
+    "noReports": "No one has reported yet",
+    "lastUpdated": "Last updated"
+  },
+  "status": {
+    "ok": "I'm OK",
+    "in-shelter": "In Shelter",
+    "evacuating": "Evacuating",
+    "need-help": "Need Help",
+    "no-signal": "Low Signal",
+    "reported": "Reported",
+    "ago": "ago",
+    "justNow": "just now",
+    "minutesAgo": "{count}m ago",
+    "hoursAgo": "{count}h ago"
+  },
+  "report": {
+    "title": "Report Status",
+    "addMessage": "Add a note...",
+    "addPhoto": "Add Photo",
+    "send": "Send",
+    "sending": "Sending...",
+    "sent": "Status sent!",
+    "selectStatus": "Select your status"
+  },
+  "family": {
+    "title": "Family",
+    "members": "Members",
+    "invite": "Invite Family Member",
+    "inviteCode": "Invite Code",
+    "shareLink": "Share Link",
+    "requestCheckIn": "Request Check-In",
+    "requestSent": "Check-in request sent!",
+    "createFamily": "Create Family",
+    "joinFamily": "Join Family",
+    "familyName": "Family name",
+    "enterCode": "Enter invite code",
+    "create": "Create",
+    "join": "Join",
+    "leave": "Leave Family",
+    "leaveConfirm": "Are you sure you want to leave this family group?"
+  },
+  "auth": {
+    "welcome": "Welcome to Beseder",
+    "subtitle": "Stay connected with your family's safety",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "At least 6 characters",
+    "signIn": "Sign In",
+    "autoCreate": "New here? An account will be created automatically",
+    "wrongPassword": "Wrong password. Please try again.",
+    "weakPassword": "Password must be at least 6 characters",
+    "yourName": "What's your name?",
+    "namePlaceholder": "Your name",
+    "continue": "Continue"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "name": "Name",
+    "language": "Language",
+    "notifications": "Notifications",
+    "notifyOnStatus": "Notify when family reports",
+    "signOut": "Sign Out"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "done": "Done",
+    "error": "Something went wrong",
+    "offline": "You're offline",
+    "offlineDesc": "Your status will sync when connected",
+    "install": "Add to Home Screen",
+    "installDesc": "Install Beseder for the best experience"
+  }
+}
