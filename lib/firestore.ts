@@ -185,6 +185,9 @@ export function subscribeToFamilyStatus(
         statuses[doc.id] = doc.data() as LatestStatusDoc;
       });
       callback(statuses);
+    },
+    (error) => {
+      console.error("Firestore listener error:", error);
     }
   );
 }
@@ -197,4 +200,31 @@ export async function requestCheckIn(
     requestedBy,
     createdAt: serverTimestamp(),
   });
+}
+
+export function subscribeToCheckInRequests(
+  familyId: string,
+  currentUserId: string,
+  callback: (requestedBy: string) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "families", familyId, "checkInRequests"),
+    where("createdAt", ">", new Date())
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          if (data.requestedBy !== currentUserId) {
+            callback(data.requestedBy);
+          }
+        }
+      });
+    },
+    (error) => {
+      console.error("Check-in listener error:", error);
+    }
+  );
 }
