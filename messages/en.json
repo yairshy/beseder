@@ -83,6 +83,7 @@
     "offline": "You're offline",
     "offlineDesc": "Your status will sync when connected",
     "install": "Add to Home Screen",
-    "installDesc": "Install Beseder for the best experience"
+    "installDesc": "Install Beseder for the best experience",
+    "installIOS": "Tap the Share button ⎋ then \"Add to Home Screen\""
   }
 }

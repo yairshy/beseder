@@ -6,6 +6,7 @@ import { useT } from "@/lib/i18n";
 export default function InstallPrompt() {
   const t = useT();
   const [show, setShow] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
 
   useEffect(() => {
@@ -20,6 +21,9 @@ export default function InstallPrompt() {
     const dismissed = localStorage.getItem("installDismissed");
     if (dismissed) return;
 
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(ios);
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -28,10 +32,8 @@ export default function InstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    // On iOS Safari, there's no beforeinstallprompt — show manual instruction
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    if (isIOS && isSafari) {
+    // On iOS Safari, show manual instructions after a delay
+    if (ios) {
       setTimeout(() => setShow(true), 3000);
     }
 
@@ -60,9 +62,15 @@ export default function InstallPrompt() {
           <p className="font-semibold text-slate-800">
             {t("common.install")}
           </p>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {t("common.installDesc")}
-          </p>
+          {isIOS ? (
+            <p className="text-sm text-slate-500 mt-1">
+              {t("common.installIOS")}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500 mt-0.5">
+              {t("common.installDesc")}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex gap-2 mt-3">
@@ -72,12 +80,14 @@ export default function InstallPrompt() {
         >
           {t("common.cancel")}
         </button>
-        <button
-          onClick={handleInstall}
-          className="flex-1 text-sm font-semibold text-white bg-green-500 py-2 rounded-xl"
-        >
-          {t("common.install")}
-        </button>
+        {!isIOS && (
+          <button
+            onClick={handleInstall}
+            className="flex-1 text-sm font-semibold text-white bg-green-500 py-2 rounded-xl"
+          >
+            {t("common.install")}
+          </button>
+        )}
       </div>
     </div>
   );
