@@ -43,6 +43,7 @@
     "requestCheckIn": "Request Check-In",
     "requestSent": "Check-in request sent!",
     "checkInReceived": "Your family is asking: are you OK?",
+    "checkInRequestedBy": "{name} wants to know you're safe",
     "createFamily": "Create Family",
     "joinFamily": "Join Family",
     "familyName": "Family name",

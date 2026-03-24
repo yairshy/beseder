@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
-import { reportStatus, subscribeToCheckInRequests } from "@/lib/firestore";
+import { reportStatus, subscribeToPendingCheckIn } from "@/lib/firestore";
 import { useT, useI18n } from "@/lib/i18n";
 import StatusButton from "@/components/StatusButton";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
@@ -117,21 +117,31 @@ function ReportModal({
   );
 }
 
-function CheckInAlert({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+function PendingCheckInBanner({ requestedByName, onReport }: { requestedByName: string; onReport: () => void }) {
+  const t = useT();
+
   useEffect(() => {
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-    const timer = setTimeout(onDismiss, 10000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, []);
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-[70] bg-blue-500 text-white rounded-2xl p-4 shadow-xl max-w-lg mx-auto animate-bounce">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">🔔</span>
-        <div className="flex-1">
-          <p className="font-bold">{message}</p>
+    <div className="fixed top-0 left-0 right-0 z-[70] bg-red-500 text-white p-4 shadow-xl">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🔔</span>
+          <div className="flex-1">
+            <p className="font-bold text-lg">{t("family.checkInReceived")}</p>
+            <p className="text-white/80 text-sm">
+              {t("family.checkInRequestedBy", { name: requestedByName })}
+            </p>
+          </div>
         </div>
-        <button onClick={onDismiss} className="text-white/80 text-xl">&times;</button>
+        <button
+          onClick={onReport}
+          className="w-full mt-3 py-3 rounded-xl bg-white text-red-500 font-bold text-lg"
+        >
+          {t("home.imOk")} ✓
+        </button>
       </div>
     </div>
   );
@@ -142,15 +152,15 @@ function HomePage() {
   const { user, profile } = useAuthStore();
   const { familyId, statuses: familyStatuses } = useFamilyStore();
   const [modalOpen, setModalOpen] = useState(false);
-  const [checkInAlert, setCheckInAlert] = useState<string | null>(null);
+  const [pendingCheckIn, setPendingCheckIn] = useState<{ requestedByName: string } | null>(null);
 
   useEffect(() => {
     if (!familyId || !user) return;
-    const unsub = subscribeToCheckInRequests(familyId, user.uid, () => {
-      setCheckInAlert(t("family.checkInReceived"));
+    const unsub = subscribeToPendingCheckIn(familyId, user.uid, (pending) => {
+      setPendingCheckIn(pending);
     });
     return () => unsub();
-  }, [familyId, user, t]);
+  }, [familyId, user]);
 
   const handleQuickReport = useCallback(async () => {
     if (!user || !profile || !familyId) return;
@@ -205,10 +215,13 @@ function HomePage() {
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-      {checkInAlert && (
-        <CheckInAlert message={checkInAlert} onDismiss={() => setCheckInAlert(null)} />
+      {pendingCheckIn && (
+        <PendingCheckInBanner
+          requestedByName={pendingCheckIn.requestedByName}
+          onReport={handleQuickReport}
+        />
       )}
-      <div className="flex-1 flex items-center justify-center px-6 pt-8">
+      <div className={`flex-1 flex items-center justify-center px-6 pt-8 ${pendingCheckIn ? "mt-28" : ""}`}>
         <StatusButton
           onTap={handleQuickReport}
           onLongPress={() => setModalOpen(true)}

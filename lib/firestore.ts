@@ -194,37 +194,64 @@ export function subscribeToFamilyStatus(
 
 export async function requestCheckIn(
   familyId: string,
-  requestedBy: string
+  requestedBy: string,
+  requestedByName: string
 ) {
-  await addDoc(collection(db, "families", familyId, "checkInRequests"), {
+  // Write a single "lastCheckInRequest" doc that gets overwritten each time
+  await setDoc(doc(db, "families", familyId, "meta", "lastCheckInRequest"), {
     requestedBy,
+    requestedByName,
     createdAt: serverTimestamp(),
   });
 }
 
-export function subscribeToCheckInRequests(
+export function subscribeToPendingCheckIn(
   familyId: string,
   currentUserId: string,
-  callback: (requestedBy: string) => void
+  callback: (pending: { requestedByName: string; requestedAt: Timestamp } | null) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, "families", familyId, "checkInRequests"),
-    where("createdAt", ">", new Date())
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const data = change.doc.data();
-          if (data.requestedBy !== currentUserId) {
-            callback(data.requestedBy);
+  // Listen to the last check-in request
+  const requestUnsub = onSnapshot(
+    doc(db, "families", familyId, "meta", "lastCheckInRequest"),
+    (requestSnap) => {
+      if (!requestSnap.exists()) {
+        callback(null);
+        return;
+      }
+      const request = requestSnap.data();
+      if (!request.createdAt || request.requestedBy === currentUserId) {
+        callback(null);
+        return;
+      }
+
+      // Check if this user's latest status is newer than the request
+      const statusUnsub = onSnapshot(
+        doc(db, "families", familyId, "latestStatus", currentUserId),
+        (statusSnap) => {
+          const requestTime = request.createdAt as Timestamp;
+          if (statusSnap.exists()) {
+            const status = statusSnap.data();
+            const statusTime = status.updatedAt as Timestamp;
+            if (statusTime && statusTime.toMillis() > requestTime.toMillis()) {
+              // User already reported after the request
+              callback(null);
+              return;
+            }
           }
-        }
-      });
+          // Pending: request exists and user hasn't reported since
+          callback({
+            requestedByName: request.requestedByName,
+            requestedAt: requestTime,
+          });
+        },
+        (error) => console.error("Status check error:", error)
+      );
+
+      // Clean up inner listener when outer changes
+      return () => statusUnsub();
     },
-    (error) => {
-      console.error("Check-in listener error:", error);
-    }
+    (error) => console.error("Check-in request listener error:", error)
   );
+
+  return requestUnsub;
 }

@@ -138,7 +138,7 @@ function NoFamilyView() {
 
 function FamilyView() {
   const t = useT();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { family, familyId, statuses } = useFamilyStore();
   const [requestSent, setRequestSent] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -146,8 +146,8 @@ function FamilyView() {
   if (!family || !familyId) return null;
 
   const handleRequestCheckIn = async () => {
-    if (!user) return;
-    await requestCheckIn(familyId, user.uid);
+    if (!user || !profile) return;
+    await requestCheckIn(familyId, user.uid, profile.displayName);
     setRequestSent(true);
     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
     setTimeout(() => setRequestSent(false), 3000);
