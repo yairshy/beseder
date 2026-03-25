@@ -51,7 +51,9 @@
     "create": "Create",
     "join": "Join",
     "leave": "Leave Family",
-    "leaveConfirm": "Are you sure you want to leave this family group?"
+    "leaveConfirm": "Are you sure you want to leave this family group?",
+    "families": "Families",
+    "addFamily": "Add Family"
   },
   "auth": {
     "welcome": "Welcome to Beseder",

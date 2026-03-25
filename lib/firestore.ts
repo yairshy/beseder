@@ -23,7 +23,8 @@ export interface UserDoc {
   phoneNumber: string;
   displayName: string;
   photoURL: string | null;
-  familyId: string | null;
+  familyId: string | null; // deprecated — kept for migration
+  familyIds: string[];
   pushSubscription: string | null;
   language: string;
   createdAt: Timestamp;
@@ -75,6 +76,7 @@ export async function createUser(
     displayName,
     photoURL: null,
     familyId: null,
+    familyIds: [],
     pushSubscription: null,
     language: "he",
     createdAt: serverTimestamp(),
@@ -84,7 +86,15 @@ export async function createUser(
 
 export async function getUser(userId: string): Promise<UserDoc | null> {
   const snap = await getDoc(doc(db, "users", userId));
-  return snap.exists() ? (snap.data() as UserDoc) : null;
+  if (!snap.exists()) return null;
+  const data = snap.data() as UserDoc;
+  // Migration: if old familyId exists but familyIds is empty, migrate
+  if (data.familyId && (!data.familyIds || data.familyIds.length === 0)) {
+    data.familyIds = [data.familyId];
+    await updateDoc(doc(db, "users", userId), { familyIds: [data.familyId] });
+  }
+  if (!data.familyIds) data.familyIds = [];
+  return data;
 }
 
 export async function updateUser(
@@ -109,7 +119,11 @@ export async function createFamily(
     memberIds: [userId],
     createdAt: serverTimestamp(),
   });
-  await updateUser(userId, { familyId: familyRef.id });
+  await updateDoc(doc(db, "users", userId), {
+    familyId: familyRef.id,
+    familyIds: arrayUnion(familyRef.id),
+    updatedAt: serverTimestamp(),
+  });
   return familyRef.id;
 }
 
@@ -128,7 +142,11 @@ export async function joinFamily(
   await updateDoc(familyDoc.ref, {
     memberIds: arrayUnion(userId),
   });
-  await updateUser(userId, { familyId: familyDoc.id });
+  await updateDoc(doc(db, "users", userId), {
+    familyId: familyDoc.id,
+    familyIds: arrayUnion(familyDoc.id),
+    updatedAt: serverTimestamp(),
+  });
   return familyDoc.id;
 }
 
@@ -138,7 +156,17 @@ export async function leaveFamily(userId: string, familyId: string) {
   });
   // Remove the user's latest status so they don't show on the dashboard
   await deleteDoc(doc(db, "families", familyId, "latestStatus", userId));
-  await updateUser(userId, { familyId: null });
+  // Remove from familyIds array
+  await updateDoc(doc(db, "users", userId), {
+    familyIds: arrayRemove(familyId),
+    updatedAt: serverTimestamp(),
+  });
+  // Update familyId to the next available family or null
+  const userDoc = await getUser(userId);
+  const remainingFamilies = userDoc?.familyIds?.filter((id) => id !== familyId) || [];
+  await updateDoc(doc(db, "users", userId), {
+    familyId: remainingFamilies.length > 0 ? remainingFamilies[0] : null,
+  });
 }
 
 export async function getFamily(
@@ -174,6 +202,23 @@ export async function reportStatus(
     userName,
     userPhotoURL,
   });
+}
+
+/** Report status to ALL families the user belongs to */
+export async function reportStatusToAll(
+  familyIds: string[],
+  userId: string,
+  userName: string,
+  userPhotoURL: string | null,
+  status: StatusId,
+  message: string | null,
+  photoURL: string | null
+) {
+  await Promise.all(
+    familyIds.map((fid) =>
+      reportStatus(fid, userId, userName, userPhotoURL, status, message, photoURL)
+    )
+  );
 }
 
 export function subscribeToFamilyStatus(

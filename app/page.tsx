@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
-import { reportStatus, subscribeToPendingCheckIn } from "@/lib/firestore";
+import { reportStatusToAll, subscribeToPendingCheckIn } from "@/lib/firestore";
+import { uploadPhoto } from "@/lib/storage";
 import { useT, useI18n } from "@/lib/i18n";
 import StatusButton from "@/components/StatusButton";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
@@ -150,22 +151,25 @@ function PendingCheckInBanner({ requestedByName, onReport }: { requestedByName: 
 function HomePage() {
   const t = useT();
   const { user, profile } = useAuthStore();
-  const { familyId, statuses: familyStatuses } = useFamilyStore();
+  const { familyIds, families } = useFamilyStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCheckIn, setPendingCheckIn] = useState<{ requestedByName: string } | null>(null);
 
+  // Listen to check-in requests from ALL families
   useEffect(() => {
-    if (!familyId || !user) return;
-    const unsub = subscribeToPendingCheckIn(familyId, user.uid, (pending) => {
-      setPendingCheckIn(pending);
-    });
-    return () => unsub();
-  }, [familyId, user]);
+    if (!familyIds.length || !user) return;
+    const unsubs = familyIds.map((fid) =>
+      subscribeToPendingCheckIn(fid, user.uid, (pending) => {
+        setPendingCheckIn(pending);
+      })
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [familyIds, user]);
 
   const handleQuickReport = useCallback(async () => {
-    if (!user || !profile || !familyId) return;
-    await reportStatus(
-      familyId,
+    if (!user || !profile || !familyIds.length) return;
+    await reportStatusToAll(
+      familyIds,
       user.uid,
       profile.displayName,
       profile.photoURL,
@@ -174,36 +178,56 @@ function HomePage() {
       null
     );
     if (navigator.vibrate) navigator.vibrate(50);
-  }, [user, profile, familyId]);
+  }, [user, profile, familyIds]);
 
   const handleDetailedReport = useCallback(
-    async (status: StatusId, message: string, _photo: File | null) => {
-      if (!user || !profile || !familyId) return;
-      await reportStatus(
-        familyId,
+    async (status: StatusId, message: string, photo: File | null) => {
+      if (!user || !profile || !familyIds.length) return;
+      let photoURL: string | null = null;
+      if (photo) {
+        const reportId = `${user.uid}_${Date.now()}`;
+        // Upload once, share URL across all families
+        photoURL = await uploadPhoto(familyIds[0], reportId, photo);
+      }
+      await reportStatusToAll(
+        familyIds,
         user.uid,
         profile.displayName,
         profile.photoURL,
         status,
         message || null,
-        null
+        photoURL
       );
       if (navigator.vibrate) navigator.vibrate(50);
     },
-    [user, profile, familyId]
+    [user, profile, familyIds]
   );
 
   // After login, check if there's a pending invite code and redirect to family page
   useEffect(() => {
-    if (user && profile && !familyId) {
+    if (user && profile && !familyIds.length) {
       const pendingCode = localStorage.getItem("pendingInviteCode");
       if (pendingCode) {
         window.location.href = `/family?code=${pendingCode}`;
       }
     }
-  }, [user, profile, familyId]);
+  }, [user, profile, familyIds]);
 
-  if (!familyId) {
+  // Merge statuses from all families (deduplicate by memberId, keep newest)
+  const allStatuses: Record<string, { status: import("@/lib/firestore").LatestStatusDoc; familyName: string }> = {};
+  for (const fid of familyIds) {
+    const fd = families[fid];
+    if (!fd) continue;
+    for (const [memberId, status] of Object.entries(fd.statuses)) {
+      const existing = allStatuses[memberId];
+      if (!existing || (status.updatedAt && existing.status.updatedAt &&
+          status.updatedAt.toMillis() > existing.status.updatedAt.toMillis())) {
+        allStatuses[memberId] = { status, familyName: fd.family.name };
+      }
+    }
+  }
+
+  if (!familyIds.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center">
         <div className="text-6xl mb-6">👨‍👩‍👧‍👦</div>
@@ -229,7 +253,7 @@ function HomePage() {
     );
   }
 
-  const statusEntries = Object.entries(familyStatuses);
+  const statusEntries = Object.entries(allStatuses);
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)]">
@@ -256,7 +280,7 @@ function HomePage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {statusEntries.map(([memberId, status]) => (
+            {statusEntries.map(([memberId, { status }]) => (
               <FamilyMemberCard
                 key={memberId}
                 memberId={memberId}

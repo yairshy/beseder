@@ -9,45 +9,98 @@ import {
 } from "@/lib/firestore";
 import type { Unsubscribe } from "firebase/firestore";
 
-interface FamilyState {
-  family: FamilyDoc | null;
-  familyId: string | null;
+interface FamilyData {
+  family: FamilyDoc;
   statuses: Record<string, LatestStatusDoc>;
+}
+
+interface FamilyState {
+  /** All loaded families keyed by familyId */
+  families: Record<string, FamilyData>;
+  /** Currently selected family for viewing on the family tab */
+  activeFamilyId: string | null;
+  /** All family IDs the user belongs to */
+  familyIds: string[];
   loading: boolean;
-  unsubscribe: Unsubscribe | null;
-  loadFamily: (familyId: string) => Promise<void>;
+  unsubscribes: Record<string, Unsubscribe>;
+
+  // Computed helpers
+  activeFamily: () => FamilyData | null;
+
+  // Actions
+  loadFamilies: (familyIds: string[]) => Promise<void>;
+  setActiveFamilyId: (id: string) => void;
   clear: () => void;
 }
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
-  family: null,
-  familyId: null,
-  statuses: {},
+  families: {},
+  activeFamilyId: null,
+  familyIds: [],
   loading: false,
-  unsubscribe: null,
+  unsubscribes: {},
 
-  loadFamily: async (familyId: string) => {
-    const prev = get().unsubscribe;
-    if (prev) prev();
-
-    set({ loading: true, familyId });
-
-    const family = await getFamily(familyId);
-    const unsub = subscribeToFamilyStatus(familyId, (statuses) => {
-      set({ statuses });
-    });
-
-    set({ family, unsubscribe: unsub, loading: false });
+  activeFamily: () => {
+    const { families, activeFamilyId } = get();
+    return activeFamilyId ? families[activeFamilyId] || null : null;
   },
 
-  clear: () => {
-    const prev = get().unsubscribe;
-    if (prev) prev();
+  loadFamilies: async (familyIds: string[]) => {
+    // Clean up previous subscriptions
+    const prevUnsubs = get().unsubscribes;
+    Object.values(prevUnsubs).forEach((unsub) => unsub());
+
+    if (familyIds.length === 0) {
+      set({ families: {}, familyIds: [], activeFamilyId: null, unsubscribes: {}, loading: false });
+      return;
+    }
+
+    set({ loading: true, familyIds });
+
+    const newUnsubs: Record<string, Unsubscribe> = {};
+    const newFamilies: Record<string, FamilyData> = {};
+
+    await Promise.all(
+      familyIds.map(async (fid) => {
+        const family = await getFamily(fid);
+        if (!family) return;
+
+        newFamilies[fid] = { family, statuses: {} };
+
+        const unsub = subscribeToFamilyStatus(fid, (statuses) => {
+          set((state) => ({
+            families: {
+              ...state.families,
+              [fid]: { ...state.families[fid], statuses },
+            },
+          }));
+        });
+        newUnsubs[fid] = unsub;
+      })
+    );
+
+    const prevActive = get().activeFamilyId;
+    const activeFamilyId =
+      prevActive && familyIds.includes(prevActive) ? prevActive : familyIds[0];
+
     set({
-      family: null,
-      familyId: null,
-      statuses: {},
-      unsubscribe: null,
+      families: newFamilies,
+      unsubscribes: newUnsubs,
+      activeFamilyId,
+      loading: false,
+    });
+  },
+
+  setActiveFamilyId: (id: string) => set({ activeFamilyId: id }),
+
+  clear: () => {
+    const unsubs = get().unsubscribes;
+    Object.values(unsubs).forEach((unsub) => unsub());
+    set({
+      families: {},
+      activeFamilyId: null,
+      familyIds: [],
+      unsubscribes: {},
     });
   },
 }));

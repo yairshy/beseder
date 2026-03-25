@@ -14,7 +14,7 @@ import AppShell from "../AppShell";
 export default function SettingsPage() {
   const t = useT();
   const { user, profile, refreshProfile } = useAuthStore();
-  const { familyId, clear: clearFamily } = useFamilyStore();
+  const { familyIds, families, loadFamilies, clear: clearFamily } = useFamilyStore();
   const { lang, setLang } = useI18n();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.displayName || "");
@@ -37,12 +37,17 @@ export default function SettingsPage() {
     await requestNotificationPermission(user.uid);
   };
 
-  const handleLeaveFamily = async () => {
-    if (!user || !familyId) return;
+  const handleLeaveFamily = async (fid: string) => {
+    if (!user) return;
     if (!confirm(t("family.leaveConfirm"))) return;
-    await leaveFamily(user.uid, familyId);
-    clearFamily();
+    await leaveFamily(user.uid, fid);
     await refreshProfile();
+    const updated = useAuthStore.getState().profile;
+    if (updated?.familyIds && updated.familyIds.length > 0) {
+      await loadFamilies(updated.familyIds);
+    } else {
+      clearFamily();
+    }
   };
 
   const handleSignOut = async () => {
@@ -117,14 +122,31 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Leave Family */}
-          {familyId && (
-            <button
-              onClick={handleLeaveFamily}
-              className="w-full py-3 rounded-2xl text-red-500 font-semibold bg-red-50 border border-red-100"
-            >
-              {t("family.leave")}
-            </button>
+          {/* Leave Families */}
+          {familyIds.length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                {t("family.families")}
+              </h3>
+              <div className="space-y-2">
+                {familyIds.map((fid) => {
+                  const fd = families[fid];
+                  return (
+                    <div key={fid} className="flex items-center justify-between">
+                      <span className="text-slate-700 font-medium">
+                        {fd?.family.name || fid}
+                      </span>
+                      <button
+                        onClick={() => handleLeaveFamily(fid)}
+                        className="text-red-500 text-sm font-semibold"
+                      >
+                        {t("family.leave")}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* Sign Out */}

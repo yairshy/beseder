@@ -13,14 +13,42 @@ import { useT } from "@/lib/i18n";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
 import AppShell from "../AppShell";
 
-function NoFamilyView() {
+function FamilySwitcher() {
+  const { families, familyIds, activeFamilyId, setActiveFamilyId } = useFamilyStore();
+
+  if (familyIds.length <= 1) return null;
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 scrollbar-hide">
+      {familyIds.map((fid) => {
+        const fd = families[fid];
+        if (!fd) return null;
+        const isActive = fid === activeFamilyId;
+        return (
+          <button
+            key={fid}
+            onClick={() => setActiveFamilyId(fid)}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+              isActive
+                ? "bg-green-500 text-white shadow-md"
+                : "bg-white text-slate-600 border border-slate-200"
+            }`}
+          >
+            {fd.family.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AddFamilyView({ onDone }: { onDone: () => void }) {
   const t = useT();
   const { user } = useAuthStore();
-  const { loadFamily } = useFamilyStore();
+  const { loadFamilies } = useFamilyStore();
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const searchParams = useSearchParams();
 
-  // Check for invite code from URL or localStorage
   const urlCode = searchParams.get("code") || "";
   const joinParam = searchParams.get("join");
   const savedCode = typeof window !== "undefined" ? localStorage.getItem("pendingInviteCode") || "" : "";
@@ -32,10 +60,8 @@ function NoFamilyView() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Auto-join if we have a code
   useEffect(() => {
     if (initialCode && user) {
-      // Clear the stored code
       localStorage.removeItem("pendingInviteCode");
     }
   }, [initialCode, user]);
@@ -45,9 +71,11 @@ function NoFamilyView() {
     setLoading(true);
     setError("");
     try {
-      const id = await createFamily(user.uid, familyName.trim());
+      await createFamily(user.uid, familyName.trim());
       await refreshProfile();
-      await loadFamily(id);
+      const profile = useAuthStore.getState().profile;
+      if (profile?.familyIds) await loadFamilies(profile.familyIds);
+      onDone();
     } catch {
       setError(t("common.error"));
     }
@@ -66,7 +94,9 @@ function NoFamilyView() {
         return;
       }
       await refreshProfile();
-      await loadFamily(id);
+      const profile = useAuthStore.getState().profile;
+      if (profile?.familyIds) await loadFamilies(profile.familyIds);
+      onDone();
     } catch {
       setError(t("common.error"));
     }
@@ -74,8 +104,8 @@ function NoFamilyView() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-6">
-      <div className="text-6xl mb-6">👨‍👩‍👧‍👦</div>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <div className="text-5xl mb-4">➕👨‍👩‍👧‍👦</div>
 
       {mode === "choose" && (
         <div className="space-y-4 w-full max-w-sm">
@@ -90,6 +120,9 @@ function NoFamilyView() {
             className="w-full py-4 rounded-2xl bg-white text-slate-800 font-bold text-lg shadow-sm border border-slate-200"
           >
             {t("family.joinFamily")}
+          </button>
+          <button onClick={onDone} className="w-full text-sm text-slate-400">
+            {t("common.cancel")}
           </button>
         </div>
       )}
@@ -156,15 +189,24 @@ function NoFamilyView() {
 function FamilyView() {
   const t = useT();
   const { user, profile } = useAuthStore();
-  const { family, familyId, statuses } = useFamilyStore();
+  const { families, activeFamilyId } = useFamilyStore();
   const [requestSent, setRequestSent] = useState(false);
   const [showCode, setShowCode] = useState(false);
+  const [addingFamily, setAddingFamily] = useState(false);
 
-  if (!family || !familyId) return null;
+  const familyData = activeFamilyId ? families[activeFamilyId] : null;
+  const family = familyData?.family;
+  const statuses = familyData?.statuses || {};
+
+  if (addingFamily) {
+    return <AddFamilyView onDone={() => setAddingFamily(false)} />;
+  }
+
+  if (!family || !activeFamilyId) return null;
 
   const handleRequestCheckIn = async () => {
     if (!user || !profile) return;
-    await requestCheckIn(familyId, user.uid, profile.displayName);
+    await requestCheckIn(activeFamilyId, user.uid, profile.displayName);
     setRequestSent(true);
     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
     setTimeout(() => setRequestSent(false), 3000);
@@ -189,6 +231,8 @@ function FamilyView() {
 
   return (
     <div className="px-4 py-6">
+      <FamilySwitcher />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
@@ -200,7 +244,7 @@ function FamilyView() {
         </div>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-4">
         <button
           onClick={handleRequestCheckIn}
           disabled={requestSent}
@@ -216,6 +260,21 @@ function FamilyView() {
         </button>
       </div>
 
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={() => setShowCode(!showCode)}
+          className="text-sm text-slate-400 underline"
+        >
+          {showCode ? t("common.done") : t("family.inviteCode")}
+        </button>
+        <button
+          onClick={() => setAddingFamily(true)}
+          className="text-sm text-green-600 font-semibold mr-auto"
+        >
+          + {t("family.addFamily")}
+        </button>
+      </div>
+
       {showCode && (
         <div className="mb-6 p-4 bg-white rounded-2xl border border-slate-200 text-center">
           <p className="text-sm text-slate-500 mb-1">{t("family.inviteCode")}</p>
@@ -224,13 +283,6 @@ function FamilyView() {
           </p>
         </div>
       )}
-
-      <button
-        onClick={() => setShowCode(!showCode)}
-        className="text-sm text-slate-400 underline mb-6 block"
-      >
-        {showCode ? t("common.done") : t("family.inviteCode")}
-      </button>
 
       <div className="space-y-3">
         {statusEntries.length === 0 ? (
@@ -252,6 +304,10 @@ function FamilyView() {
   );
 }
 
+function NoFamilyView() {
+  return <AddFamilyView onDone={() => {}} />;
+}
+
 function SaveCodeAndLogin() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code") || "";
@@ -262,23 +318,21 @@ function SaveCodeAndLogin() {
     }
   }, [code]);
 
-  // Dynamic import to avoid circular deps
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const LoginPage = require("../login/page").default;
-
   return <LoginPage />;
 }
 
 export default function FamilyPage() {
   const { user, profile, initialized } = useAuthStore();
   const isAuthed = !!user && !!profile?.displayName;
-  const hasFamilyId = !!profile?.familyId;
+  const hasFamilies = !!(profile?.familyIds && profile.familyIds.length > 0);
 
   return (
     <AppShell>
       {!initialized ? null : !isAuthed ? (
         <SaveCodeAndLogin />
-      ) : hasFamilyId ? (
+      ) : hasFamilies ? (
         <FamilyView />
       ) : (
         <NoFamilyView />

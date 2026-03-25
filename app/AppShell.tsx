@@ -10,7 +10,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, initialized } = useAuthStore();
-  const { loadFamily } = useFamilyStore();
+  const { loadFamilies } = useFamilyStore();
   const lang = useI18n((s) => s.lang);
 
   useEffect(() => {
@@ -25,10 +25,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (profile?.familyId) {
-      loadFamily(profile.familyId);
+    if (profile?.familyIds && profile.familyIds.length > 0) {
+      loadFamilies(profile.familyIds);
     }
-  }, [profile?.familyId, loadFamily]);
+  }, [profile?.familyIds?.join(","), loadFamilies]);
 
   if (!initialized || loading) {
     return (
