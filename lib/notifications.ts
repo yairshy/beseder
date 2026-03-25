@@ -40,6 +40,20 @@ export function canNotify(): boolean {
   );
 }
 
+/** Migrate existing push subscription to family subcollections (one-time) */
+export async function migratePushSubscription(
+  userId: string,
+  familyIds: string[],
+  subscription: string
+): Promise<void> {
+  try {
+    await savePushSubscriptionToFamilies(userId, familyIds, subscription);
+    console.log("[notify] Migrated push subscription to family subcollections");
+  } catch (err) {
+    console.error("[notify] Migration error:", err);
+  }
+}
+
 /** Send push notifications to all family members */
 export async function notifyFamilyMembers(
   familyIds: string[],

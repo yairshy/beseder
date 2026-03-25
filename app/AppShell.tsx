@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
 import { useI18n } from "@/lib/i18n";
-import { requestNotificationPermission } from "@/lib/notifications";
+import { requestNotificationPermission, migratePushSubscription } from "@/lib/notifications";
 import BottomNav from "@/components/BottomNav";
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -41,6 +41,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return () => clearTimeout(timer);
     }
   }, [user, profile?.familyIds?.length, profile?.pushSubscription]);
+
+  // Migrate existing push subscriptions to family subcollections
+  useEffect(() => {
+    if (user && profile?.pushSubscription && profile?.familyIds && profile.familyIds.length > 0) {
+      migratePushSubscription(user.uid, profile.familyIds, profile.pushSubscription);
+    }
+  }, [user, profile?.pushSubscription, profile?.familyIds?.join(",")]);
 
   if (!initialized || loading) {
     return (
