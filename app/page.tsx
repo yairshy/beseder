@@ -283,7 +283,7 @@ function HomePage() {
 
   const handleEnableNotifications = async () => {
     if (!user) return;
-    const granted = await requestNotificationPermission(user.uid);
+    const granted = await requestNotificationPermission(user.uid, familyIds);
     if (granted) {
       setShowNotifBanner(false);
       // Refresh profile so pushSubscription is set

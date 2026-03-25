@@ -36,7 +36,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (user && profile?.familyIds && profile.familyIds.length > 0 && !profile.pushSubscription) {
       // Small delay so the user settles in first
       const timer = setTimeout(() => {
-        requestNotificationPermission(user.uid);
+        requestNotificationPermission(user.uid, profile.familyIds);
       }, 2000);
       return () => clearTimeout(timer);
     }

@@ -154,8 +154,9 @@ export async function leaveFamily(userId: string, familyId: string) {
   await updateDoc(doc(db, "families", familyId), {
     memberIds: arrayRemove(userId),
   });
-  // Remove the user's latest status so they don't show on the dashboard
+  // Remove the user's latest status and push subscription
   await deleteDoc(doc(db, "families", familyId, "latestStatus", userId));
+  await deleteDoc(doc(db, "families", familyId, "pushSubscriptions", userId)).catch(() => {});
   // Remove from familyIds array
   await updateDoc(doc(db, "users", userId), {
     familyIds: arrayRemove(familyId),
@@ -304,27 +305,50 @@ export function subscribeToPendingCheckIn(
   return requestUnsub;
 }
 
+/** Save push subscription to all families the user belongs to */
+export async function savePushSubscriptionToFamilies(
+  userId: string,
+  familyIds: string[],
+  subscription: string
+) {
+  await Promise.all(
+    familyIds.map((fid) =>
+      setDoc(doc(db, "families", fid, "pushSubscriptions", userId), {
+        subscription,
+        updatedAt: serverTimestamp(),
+      })
+    )
+  );
+}
+
+/** Remove push subscription from a family when leaving */
+export async function removePushSubscriptionFromFamily(
+  userId: string,
+  familyId: string
+) {
+  await deleteDoc(doc(db, "families", familyId, "pushSubscriptions", userId));
+}
+
 /** Get push subscriptions for all family members (excluding a specific user) */
 export async function getFamilyPushSubscriptions(
   familyIds: string[],
   excludeUserId: string
 ): Promise<string[]> {
-  const memberIds = new Set<string>();
+  const subscriptions: string[] = [];
+  const seen = new Set<string>();
+
   for (const fid of familyIds) {
-    const familyDoc = await getFamily(fid);
-    if (familyDoc?.memberIds) {
-      for (const mid of familyDoc.memberIds) {
-        if (mid !== excludeUserId) memberIds.add(mid);
+    const snap = await getDocs(collection(db, "families", fid, "pushSubscriptions"));
+    snap.forEach((docSnap) => {
+      if (docSnap.id !== excludeUserId && !seen.has(docSnap.id)) {
+        seen.add(docSnap.id);
+        const data = docSnap.data();
+        if (data.subscription) {
+          subscriptions.push(data.subscription);
+        }
       }
-    }
+    });
   }
 
-  const subscriptions: string[] = [];
-  for (const uid of memberIds) {
-    const userDoc = await getUser(uid);
-    if (userDoc?.pushSubscription) {
-      subscriptions.push(userDoc.pushSubscription);
-    }
-  }
   return subscriptions;
 }

@@ -34,7 +34,7 @@ export default function SettingsPage() {
 
   const handleEnableNotifications = async () => {
     if (!user) return;
-    await requestNotificationPermission(user.uid);
+    await requestNotificationPermission(user.uid, familyIds);
   };
 
   const handleLeaveFamily = async (fid: string) => {
