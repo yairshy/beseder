@@ -79,6 +79,12 @@
     "notifyOnStatus": "Notify when family reports",
     "signOut": "Sign Out"
   },
+  "notifications": {
+    "enableTitle": "Enable Notifications",
+    "enableDesc": "Get notified when family members report or request a check-in",
+    "enable": "Enable",
+    "later": "Later"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

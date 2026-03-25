@@ -5,7 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
 import { reportStatusToAll, subscribeToPendingCheckIn } from "@/lib/firestore";
 import { uploadPhoto } from "@/lib/storage";
-import { notifyFamilyMembers } from "@/lib/notifications";
+import { notifyFamilyMembers, requestNotificationPermission } from "@/lib/notifications";
 import { useT, useI18n } from "@/lib/i18n";
 import StatusButton from "@/components/StatusButton";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
@@ -155,6 +155,16 @@ function HomePage() {
   const { familyIds, families } = useFamilyStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingCheckIn, setPendingCheckIn] = useState<{ requestedByName: string } | null>(null);
+  const [showNotifBanner, setShowNotifBanner] = useState(false);
+
+  // Show notification banner if user hasn't enabled notifications
+  useEffect(() => {
+    if (!user || !profile || !familyIds.length) return;
+    if (profile.pushSubscription) return; // already subscribed
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "denied") return; // user explicitly denied
+    setShowNotifBanner(true);
+  }, [user, profile, familyIds]);
 
   // Listen to check-in requests from ALL families
   useEffect(() => {
@@ -271,8 +281,49 @@ function HomePage() {
 
   const statusEntries = Object.entries(allStatuses);
 
+  const handleEnableNotifications = async () => {
+    if (!user) return;
+    const granted = await requestNotificationPermission(user.uid);
+    if (granted) {
+      setShowNotifBanner(false);
+      // Refresh profile so pushSubscription is set
+      useAuthStore.getState().refreshProfile();
+    } else {
+      setShowNotifBanner(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+      {showNotifBanner && !pendingCheckIn && (
+        <div className="mx-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔔</span>
+            <div className="flex-1">
+              <p className="font-semibold text-slate-800 text-sm">
+                {t("notifications.enableTitle")}
+              </p>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {t("notifications.enableDesc")}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={handleEnableNotifications}
+              className="flex-1 py-2 rounded-xl bg-blue-500 text-white font-semibold text-sm"
+            >
+              {t("notifications.enable")}
+            </button>
+            <button
+              onClick={() => setShowNotifBanner(false)}
+              className="px-4 py-2 rounded-xl text-slate-400 text-sm"
+            >
+              {t("notifications.later")}
+            </button>
+          </div>
+        </div>
+      )}
       {pendingCheckIn && (
         <PendingCheckInBanner
           requestedByName={pendingCheckIn.requestedByName}
