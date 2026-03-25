@@ -193,6 +193,16 @@ function HomePage() {
     [user, profile, familyId]
   );
 
+  // After login, check if there's a pending invite code and redirect to family page
+  useEffect(() => {
+    if (user && profile && !familyId) {
+      const pendingCode = localStorage.getItem("pendingInviteCode");
+      if (pendingCode) {
+        window.location.href = `/family?code=${pendingCode}`;
+      }
+    }
+  }, [user, profile, familyId]);
+
   if (!familyId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center">
@@ -201,12 +211,20 @@ function HomePage() {
           {t("home.noFamily")}
         </h2>
         <p className="text-slate-500 mb-8">{t("home.joinOrCreate")}</p>
-        <a
-          href="/family"
-          className="px-8 py-4 bg-green-500 text-white font-bold rounded-2xl shadow-lg"
-        >
-          {t("family.createFamily")}
-        </a>
+        <div className="space-y-3 w-full max-w-sm">
+          <a
+            href="/family"
+            className="block w-full px-8 py-4 bg-green-500 text-white font-bold rounded-2xl shadow-lg text-center"
+          >
+            {t("family.createFamily")}
+          </a>
+          <a
+            href="/family?join=1"
+            className="block w-full px-8 py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-sm border border-slate-200 text-center"
+          >
+            {t("family.joinFamily")}
+          </a>
+        </div>
       </div>
     );
   }

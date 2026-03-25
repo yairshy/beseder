@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
 import {
@@ -17,11 +18,27 @@ function NoFamilyView() {
   const { user } = useAuthStore();
   const { loadFamily } = useFamilyStore();
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
-  const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
+  const searchParams = useSearchParams();
+
+  // Check for invite code from URL or localStorage
+  const urlCode = searchParams.get("code") || "";
+  const joinParam = searchParams.get("join");
+  const savedCode = typeof window !== "undefined" ? localStorage.getItem("pendingInviteCode") || "" : "";
+  const initialCode = urlCode || savedCode;
+
+  const [mode, setMode] = useState<"choose" | "create" | "join">(initialCode || joinParam ? "join" : "choose");
   const [familyName, setFamilyName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialCode);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-join if we have a code
+  useEffect(() => {
+    if (initialCode && user) {
+      // Clear the stored code
+      localStorage.removeItem("pendingInviteCode");
+    }
+  }, [initialCode, user]);
 
   const handleCreate = async () => {
     if (!user || !familyName.trim()) return;
@@ -157,7 +174,7 @@ function FamilyView() {
     const shareData = {
       title: "Join my family on Beseder",
       text: `Join my family "${family.name}" on Beseder. Code: ${family.inviteCode}`,
-      url: `${window.location.origin}/family?code=${family.inviteCode}`,
+      url: `${window.location.origin}/invite/${family.inviteCode}`,
     };
     if (navigator.share) {
       await navigator.share(shareData);
@@ -235,13 +252,37 @@ function FamilyView() {
   );
 }
 
+function SaveCodeAndLogin() {
+  const searchParams = useSearchParams();
+  const code = searchParams.get("code") || "";
+
+  useEffect(() => {
+    if (code) {
+      localStorage.setItem("pendingInviteCode", code);
+    }
+  }, [code]);
+
+  // Dynamic import to avoid circular deps
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const LoginPage = require("../login/page").default;
+
+  return <LoginPage />;
+}
+
 export default function FamilyPage() {
-  const { profile } = useAuthStore();
+  const { user, profile, initialized } = useAuthStore();
+  const isAuthed = !!user && !!profile?.displayName;
   const hasFamilyId = !!profile?.familyId;
 
   return (
     <AppShell>
-      {hasFamilyId ? <FamilyView /> : <NoFamilyView />}
+      {!initialized ? null : !isAuthed ? (
+        <SaveCodeAndLogin />
+      ) : hasFamilyId ? (
+        <FamilyView />
+      ) : (
+        <NoFamilyView />
+      )}
     </AppShell>
   );
 }
