@@ -10,6 +10,7 @@ import {
   requestCheckIn,
 } from "@/lib/firestore";
 import { useT } from "@/lib/i18n";
+import { notifyFamilyMembers } from "@/lib/notifications";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
 import AppShell from "../AppShell";
 
@@ -207,6 +208,13 @@ function FamilyView() {
   const handleRequestCheckIn = async () => {
     if (!user || !profile) return;
     await requestCheckIn(activeFamilyId, user.uid, profile.displayName);
+    // Send push notification to family members
+    notifyFamilyMembers(
+      [activeFamilyId],
+      user.uid,
+      "בסדר - בקשת דיווח 🔔",
+      `${profile.displayName} מבקש/ת לדעת שאתם בסדר`
+    );
     setRequestSent(true);
     if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
     setTimeout(() => setRequestSent(false), 3000);

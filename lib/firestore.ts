@@ -303,3 +303,28 @@ export function subscribeToPendingCheckIn(
 
   return requestUnsub;
 }
+
+/** Get push subscriptions for all family members (excluding a specific user) */
+export async function getFamilyPushSubscriptions(
+  familyIds: string[],
+  excludeUserId: string
+): Promise<string[]> {
+  const memberIds = new Set<string>();
+  for (const fid of familyIds) {
+    const familyDoc = await getFamily(fid);
+    if (familyDoc?.memberIds) {
+      for (const mid of familyDoc.memberIds) {
+        if (mid !== excludeUserId) memberIds.add(mid);
+      }
+    }
+  }
+
+  const subscriptions: string[] = [];
+  for (const uid of memberIds) {
+    const userDoc = await getUser(uid);
+    if (userDoc?.pushSubscription) {
+      subscriptions.push(userDoc.pushSubscription);
+    }
+  }
+  return subscriptions;
+}

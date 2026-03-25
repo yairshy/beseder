@@ -1,6 +1,6 @@
 "use client";
 
-import { updateUser } from "./firestore";
+import { updateUser, getFamilyPushSubscriptions } from "./firestore";
 
 export async function requestNotificationPermission(
   userId: string
@@ -34,4 +34,26 @@ export function canNotify(): boolean {
     "Notification" in window &&
     Notification.permission === "granted"
   );
+}
+
+/** Send push notifications to all family members */
+export async function notifyFamilyMembers(
+  familyIds: string[],
+  senderId: string,
+  title: string,
+  body: string
+): Promise<void> {
+  try {
+    const subscriptions = await getFamilyPushSubscriptions(familyIds, senderId);
+    if (subscriptions.length === 0) return;
+
+    // Fire and forget — don't block the UI
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscriptions, title, body, url: "/" }),
+    }).catch(() => {}); // Silently ignore errors
+  } catch {
+    // Don't let notification failures break the app
+  }
 }

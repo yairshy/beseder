@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
 import { useI18n } from "@/lib/i18n";
+import { requestNotificationPermission } from "@/lib/notifications";
 import BottomNav from "@/components/BottomNav";
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -29,6 +30,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       loadFamilies(profile.familyIds);
     }
   }, [profile?.familyIds?.join(","), loadFamilies]);
+
+  // Auto-request notification permission once user has a family
+  useEffect(() => {
+    if (user && profile?.familyIds && profile.familyIds.length > 0 && !profile.pushSubscription) {
+      // Small delay so the user settles in first
+      const timer = setTimeout(() => {
+        requestNotificationPermission(user.uid);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, profile?.familyIds?.length, profile?.pushSubscription]);
 
   if (!initialized || loading) {
     return (

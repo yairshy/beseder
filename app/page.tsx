@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFamilyStore } from "@/stores/familyStore";
 import { reportStatusToAll, subscribeToPendingCheckIn } from "@/lib/firestore";
 import { uploadPhoto } from "@/lib/storage";
+import { notifyFamilyMembers } from "@/lib/notifications";
 import { useT, useI18n } from "@/lib/i18n";
 import StatusButton from "@/components/StatusButton";
 import FamilyMemberCard from "@/components/FamilyMemberCard";
@@ -177,6 +178,13 @@ function HomePage() {
       null,
       null
     );
+    // Notify family members
+    notifyFamilyMembers(
+      familyIds,
+      user.uid,
+      "בסדר 🛡️",
+      `${profile.displayName} דיווח/ה: אני בסדר ✅`
+    );
     if (navigator.vibrate) navigator.vibrate(50);
   }, [user, profile, familyIds]);
 
@@ -197,6 +205,14 @@ function HomePage() {
         status,
         message || null,
         photoURL
+      );
+      // Notify family members
+      const statusDef = statuses.find((s) => s.id === status);
+      notifyFamilyMembers(
+        familyIds,
+        user.uid,
+        "בסדר 🛡️",
+        `${profile.displayName} דיווח/ה: ${statusDef?.labelHe || status}`
       );
       if (navigator.vibrate) navigator.vibrate(50);
     },
