@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 
-webpush.setVapidDetails(
-  "mailto:beseder@beseder.app",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+let vapidConfigured = false;
+
+function ensureVapid() {
+  if (vapidConfigured) return true;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey) return false;
+  webpush.setVapidDetails("mailto:beseder@beseder.app", publicKey, privateKey);
+  vapidConfigured = true;
+  return true;
+}
 
 interface NotifyRequest {
-  subscriptions: string[]; // JSON-stringified PushSubscription objects
+  subscriptions: string[];
   title: string;
   body: string;
   url?: string;
@@ -16,6 +22,10 @@ interface NotifyRequest {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!ensureVapid()) {
+      return NextResponse.json({ error: "VAPID keys not configured" }, { status: 500 });
+    }
+
     const { subscriptions, title, body, url }: NotifyRequest = await req.json();
 
     if (!subscriptions?.length || !title || !body) {
