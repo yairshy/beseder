@@ -235,7 +235,11 @@ function FamilyView() {
     }
   };
 
-  const statusEntries = Object.entries(statuses);
+  const statusEntries = Object.entries(statuses).sort((a, b) => {
+    const timeA = a[1].updatedAt?.toMillis() ?? 0;
+    const timeB = b[1].updatedAt?.toMillis() ?? 0;
+    return timeB - timeA; // most recent first
+  });
 
   return (
     <div className="px-4 py-6">

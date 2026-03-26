@@ -279,7 +279,11 @@ function HomePage() {
     );
   }
 
-  const statusEntries = Object.entries(allStatuses);
+  const statusEntries = Object.entries(allStatuses).sort((a, b) => {
+    const timeA = a[1].status.updatedAt?.toMillis() ?? 0;
+    const timeB = b[1].status.updatedAt?.toMillis() ?? 0;
+    return timeB - timeA; // most recent first
+  });
 
   const handleEnableNotifications = async () => {
     if (!user) return;
