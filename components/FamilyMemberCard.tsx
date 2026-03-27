@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { LatestStatusDoc } from "@/lib/firestore";
 import StatusBadge from "./StatusBadge";
 import TimeSince from "./TimeSince";
@@ -19,12 +19,10 @@ export default function FamilyMemberCard({
   const [imageError, setImageError] = useState(false);
 
   const storageKey = status.photoURL ? `story-viewed:${status.photoURL}` : null;
-  // Initialize as true (no ring) to match SSR — useEffect corrects it client-side
-  const [storyViewed, setStoryViewed] = useState(true);
-  useEffect(() => {
-    if (!storageKey) return;
-    try { setStoryViewed(localStorage.getItem(storageKey) === "1"); } catch {}
-  }, [storageKey]);
+  const [storyViewed, setStoryViewed] = useState(() => {
+    if (!storageKey) return true;
+    try { return localStorage.getItem(storageKey) === "1"; } catch { return false; }
+  });
 
   function markViewed() {
     setStoryViewed(true);
@@ -77,8 +75,6 @@ export default function FamilyMemberCard({
                 <img
                   src={status.photoURL}
                   alt=""
-                  width={56}
-                  height={56}
                   className="h-14 w-14 rounded-full object-cover active:scale-95 transition-transform"
                   onError={() => setImageError(true)}
                 />
