@@ -17,6 +17,7 @@ export default function FamilyMemberCard({
   const isMe = memberId === currentUserId;
   const [showFullImage, setShowFullImage] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [storyViewed, setStoryViewed] = useState(false);
 
   return (
     <>
@@ -56,15 +57,19 @@ export default function FamilyMemberCard({
         </div>
         {status.photoURL && !imageError && (
           <button
-            onClick={() => setShowFullImage(true)}
+            onClick={() => { setShowFullImage(true); setStoryViewed(true); }}
             className="shrink-0 focus:outline-none"
           >
-            <img
-              src={status.photoURL}
-              alt=""
-              className="h-14 w-14 rounded-xl object-cover active:scale-95 transition-transform"
-              onError={() => setImageError(true)}
-            />
+            <div className={`p-[3px] rounded-full ${!storyViewed ? "story-ring" : ""}`}>
+              <div className="rounded-full p-[2px] bg-white">
+                <img
+                  src={status.photoURL}
+                  alt=""
+                  className="h-14 w-14 rounded-full object-cover active:scale-95 transition-transform"
+                  onError={() => setImageError(true)}
+                />
+              </div>
+            </div>
           </button>
         )}
       </div>
