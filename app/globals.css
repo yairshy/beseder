@@ -31,3 +31,22 @@ button, a {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Instagram/Snapchat-style story ring */
+@keyframes story-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes story-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.5), 0 0 12px 3px rgba(236, 72, 153, 0.35); }
+  50% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2), 0 0 18px 5px rgba(236, 72, 153, 0.5); }
+}
+
+.story-ring {
+  background: linear-gradient(135deg, #f97316, #ec4899, #8b5cf6, #f97316);
+  background-size: 300% 300%;
+  animation: story-rotate 2.5s ease infinite, story-pulse 2.5s ease infinite;
+  border-radius: 9999px;
+}
