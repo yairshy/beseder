@@ -17,7 +17,17 @@ export default function FamilyMemberCard({
   const isMe = memberId === currentUserId;
   const [showFullImage, setShowFullImage] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [storyViewed, setStoryViewed] = useState(false);
+
+  const storageKey = status.photoURL ? `story-viewed:${status.photoURL}` : null;
+  const [storyViewed, setStoryViewed] = useState(() => {
+    if (!storageKey) return true;
+    try { return localStorage.getItem(storageKey) === "1"; } catch { return false; }
+  });
+
+  function markViewed() {
+    setStoryViewed(true);
+    if (storageKey) { try { localStorage.setItem(storageKey, "1"); } catch {} }
+  }
 
   return (
     <>
@@ -57,7 +67,7 @@ export default function FamilyMemberCard({
         </div>
         {status.photoURL && !imageError && (
           <button
-            onClick={() => { setShowFullImage(true); setStoryViewed(true); }}
+            onClick={() => { setShowFullImage(true); markViewed(); }}
             className="shrink-0 focus:outline-none"
           >
             <div className={`p-[3px] rounded-full ${!storyViewed ? "story-ring" : ""}`}>
